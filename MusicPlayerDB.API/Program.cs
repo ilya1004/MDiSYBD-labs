@@ -9,6 +9,8 @@ var services = builder.Services;
 
 services.AddControllers();
 
+services.AddRepositories();
+
 services.AddSwaggerGen(c => c.SwaggerDoc("v1", new OpenApiInfo { Title = "MusicPlayer", Version = "v1"}));
 
 services.AddDbContext<MusicPlayerDbContext>(options =>

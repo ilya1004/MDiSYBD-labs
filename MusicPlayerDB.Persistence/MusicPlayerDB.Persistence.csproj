@@ -13,4 +13,8 @@
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.7.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\MusicPlayerDB.Domain\MusicPlayerDB.Domain.csproj" />
+  </ItemGroup>
+
 </Project>
