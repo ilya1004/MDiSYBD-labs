@@ -1,70 +1,131 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MusicPlayerDB.Domain.DTOs;
+using MusicPlayerDB.Domain.Entities;
 using MusicPlayerDB.Domain.Models;
-using MusicPlayerDB.Domain.Utils;
+using System.Runtime.CompilerServices;
 
 namespace MusicPlayerDB.Persistence.Repositories;
 
 public class TagsRepository
 {
     private readonly MusicPlayerDbContext _context;
+
     public TagsRepository(MusicPlayerDbContext context)
     {
         _context = context;
     }
 
-    public async Task<ResponseData<int>> Create(Tag tag)
+    private async Task<ResponseData<T>> ExecuteWithErrorHandling<T>(Func<Task<T>> func)
     {
         try
         {
-            var rows = await _context.Database.ExecuteSqlAsync($"INSERT INTO tags (name) VALUES ({tag.Name})");
-            return ResponseData<int>.Success(rows);
+            return ResponseData<T>.Success(await func());
         }
         catch (Exception ex)
         {
             Console.WriteLine("Произошла ошибка: " + ex.Message);
-            return ResponseData<int>.Error(ex.Message);
+            return ResponseData<T>.Error(ex.Message);
         }
     }
 
-    public ResponseData<List<Tag>> GetAll()
+    /// <summary>
+    /// Создание нового тега.
+    /// </summary>
+    public Task<ResponseData<int>> Create(Tag tag)
     {
-        var data = _context.Database.SqlQuery<Tag>($"SELECT * FROM tags ORDER BY id");
-
-        return ResponseData<List<Tag>>.Success(data.ToList());
+        return ExecuteWithErrorHandling(async () =>
+        {
+            var rows = await _context.Database.ExecuteSqlAsync(
+                FormattableStringFactory.Create("INSERT INTO tags (name) VALUES ({0})", tag.Name!));
+            return rows;
+        });
     }
 
-    public ResponseData<List<Tag>> GetById(int id)
+    /// <summary>
+    /// Получить все теги.
+    /// </summary>
+    public Task<ResponseData<List<Tag>>> GetAll()
     {
-        var data = _context.Database.SqlQuery<Tag>($"SELECT * FROM tags WHERE id = {id}");
-
-        return ResponseData<List<Tag>>.Success(data.ToList());
+        return ExecuteWithErrorHandling(async () =>
+        {
+            var data = await _context.Database.SqlQuery<Tag>(
+                FormattableStringFactory.Create("SELECT * FROM tags ORDER BY id")).AsNoTracking().ToListAsync();
+            return data;
+        });
     }
 
-    public async Task<ResponseData<int>> Update(int id, Tag tag)
+    /// <summary>
+    /// Получить тег по ID.
+    /// </summary>
+    public Task<ResponseData<Tag>> GetById(int id)
     {
-        try
+        return ExecuteWithErrorHandling(async () =>
         {
-            var rows = await _context.Database.ExecuteSqlAsync($"UPDATE tags SET name = {tag.Name} WHERE id = {id}");
-            return ResponseData<int>.Success(rows);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Произошла ошибка: " + ex.Message);
-            return ResponseData<int>.Error(ex.Message);
-        }
+            var data = await _context.Database.SqlQuery<Tag>(
+                FormattableStringFactory.Create("SELECT * FROM tags WHERE id = {0}", id)).AsNoTracking().ToListAsync();
+
+            return data.FirstOrDefault() ?? throw new KeyNotFoundException($"Tag with ID {id} not found");
+        });
     }
 
-    public async Task<ResponseData<int>> Delete(int id)
+    /// <summary>
+    /// Обновление информации о теге.
+    /// </summary>
+    public Task<ResponseData<int>> Update(int id, Tag tag)
     {
-        try
+        return ExecuteWithErrorHandling(async () =>
         {
-            var rows = await _context.Database.ExecuteSqlAsync($"DELETE FROM tags WHERE id = {id}");
-            return ResponseData<int>.Success(rows);
-        }
-        catch (Exception ex)
+            var rows = await _context.Database.ExecuteSqlAsync(
+                FormattableStringFactory.Create("UPDATE tags SET name = {0} WHERE id = {1}", tag.Name!, id));
+            return rows;
+        });
+    }
+
+    /// <summary>
+    /// Удаление тега по ID.
+    /// </summary>
+    public Task<ResponseData<int>> Delete(int id)
+    {
+        return ExecuteWithErrorHandling(async () =>
         {
-            Console.WriteLine("Произошла ошибка: " + ex.Message);
-            return ResponseData<int>.Error(ex.Message);
-        }
+            var rows = await _context.Database.ExecuteSqlAsync(
+                FormattableStringFactory.Create("DELETE FROM tags WHERE id = {0}", id));
+
+            if (rows == 0)
+                throw new KeyNotFoundException($"Tag with ID {id} not found");
+
+            return rows;
+        });
+    }
+
+    /// <summary>
+    /// Теги по ID песни.
+    /// </summary>
+    public Task<ResponseData<List<SongWithTagsDTO>>> GetTagsForSong(int songId)
+    {
+        return ExecuteWithErrorHandling(async () =>
+        {
+            var query = FormattableStringFactory.Create(@"
+            SELECT 
+                s.id AS SongId, 
+                s.title AS Title, 
+                u.id AS ArtistId, 
+                ai.name AS ArtistName, 
+                t.id AS TagId, 
+                t.name AS TagName 
+            FROM songs s
+            INNER JOIN users u ON s.artist_id = u.id
+            INNER JOIN artist_info ai ON u.artist_info_id = ai.id
+            LEFT OUTER JOIN songs_tags st ON st.song_id = s.id
+            LEFT OUTER JOIN tags t ON st.tag_id = t.id
+            WHERE s.id = {0}
+            ORDER BY s.id ASC", songId);
+
+            var data = await _context.Database.SqlQuery<SongWithTagsDTO>(query)
+                .AsNoTracking()
+                .ToListAsync();
+
+            return data;
+        });
     }
 }

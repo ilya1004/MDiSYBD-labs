@@ -36,9 +36,9 @@ CREATE TABLE events (
 	artist_id int not null references users(id) on delete cascade
 );
 
-CREATE TABLE user_logs (
+CREATE TABLE logs (
 	id serial primary key,
-	action varchar(100) not null,
+	action varchar(200) not null,
 	datetime timestamp not null,
 	user_id int references users(id) on delete set null
 );

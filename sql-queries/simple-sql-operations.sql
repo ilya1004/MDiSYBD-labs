@@ -7,7 +7,7 @@ where role_id = 2;
 select * from roles;
 
 select * from songs
-where title = 'Song 1'
+where title = 'Song 1';
 
 select * from tags
 order by id asc

@@ -1,4 +1,4 @@
-﻿namespace MusicPlayerDB.Domain.Utils;
+﻿namespace MusicPlayerDB.Domain.Models;
 
 public class ResponseData<T>
 {
